@@ -1,22 +1,21 @@
 from ultralytics import YOLO
 import numpy as np
+from final.schemas import SegmentorConfig
+import torch
+
 
 class Detector():
-    def __init__(self):
-        self.checkpoint = "/home/antoine/Documents/Segmentation/custom-yolo-detect/train/weights/best.pt"
-        self.device = "cuda"
+    def __init__(self, config: SegmentorConfig):
+        self.checkpoint = config.detector_path
+        self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
     def load(self):
         self.detector = YOLO(self.checkpoint).to(self.device)
-        self.pose = YOLO("yolo11n-pose.pt")  # YOLOv8-Pose
 
-    
     def infer(self, img):
-        result = self.detector.predict(img)
-        box = result[0].boxes.xyxy.cpu().numpy()
-        height, width = img.shape[:2]
-        box = box[0]
-        r = self.pose.predict(img)
-        # box = np.array([box[0][0]/width, box[0][1]/height, box[0][2]/width, box[0][3]/height])
-        # box = np.array([int(box[0][0]), int(box[0][1]), int(box[0][2]), int(box[0][3])])
-        return box , r[0].keypoints.xyn
+        result = self.detector.predict(img, retina_masks=True)
+        mask = result[0].masks.data.cpu().numpy()[0]
+        mask = (mask*255).astype(np.uint8)
+        # masked_img=img*np.stack((mask.astype(np.uint8),)*3, axis=-1)
+        # masked_img[np.where((masked_img == [0, 0, 0]).all(axis=2))] = [255, 255, 255]
+        return mask

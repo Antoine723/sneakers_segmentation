@@ -2,49 +2,44 @@ from final.detector import Detector
 from final.mask_predictor import MaskPredictor
 import cv2
 import numpy as np
+from pathlib import Path
+
+from final.schemas import SegmentorConfig
+
 
 class AutomaticSegmentor():
-    def __init__(self):
-        # self.detector = Detector()
-        self.mask_predictor = MaskPredictor()
+    def __init__(self, config: SegmentorConfig):
+        self.detector = Detector(config)
+        self.mask_predictor = MaskPredictor(config)
 
     def load(self):
-        # self.detector.load()
+        self.detector.load()
         self.mask_predictor.load()
 
-    def post_process(self, mask, img):
+    def post_process(self, mask: np.ndarray, img: np.ndarray):
         height, width = img.shape[:2]
-        # masked_img = img * np.stack((mask,)*3, axis=-1)
-        # cv2.imwrite("leTest.jpg", masked_img)
         resized_mask = cv2.resize(mask, (width, height), interpolation=cv2.INTER_CUBIC)
-        
-        binary_mask = (resized_mask > 0.5).astype(np.uint8) *255
-        
-        basket_extracted = cv2.bitwise_and(img, img, mask=binary_mask)
-        
-        background_white = np.ones_like(img) * 255  # Multiplie par 255 pour un fond blanc pur
-        inverse_mask = cv2.bitwise_not(binary_mask)
-        
-        background_with_mask = cv2.bitwise_and(background_white, background_white, mask=inverse_mask)
 
-        return cv2.add(basket_extracted, background_with_mask)
-    
-    def infer(self, img, output_dir):
-        # small_img = cv2.resize(img, (1024,1024))
+        binary_mask = (resized_mask > 0.5).astype(np.uint8) * 255
+        kernel = np.ones((3, 3), np.uint8)
+        binary_mask = cv2.morphologyEx(binary_mask, cv2.MORPH_CLOSE, kernel, iterations=2)
+        binary_mask = cv2.morphologyEx(binary_mask, cv2.MORPH_OPEN, kernel, iterations=1)
 
-        # box, kps = self.detector.infer(small_img)
-        # box[1] = 0
-        # cpy = img.copy()
-        # for kp in kps[0]:
-        #     x = int(kp[0]*width)
-        #     y = int(kp[1]*height)
-        #     cpy = cv2.circle(cpy, (x,y),50, color=(0,0,255))
-        # cv2.imwrite("test.jpg", cpy)
-        # mask_with_box = self.mask_predictor.infer_with_box(small_img, box)
-        mask_with_pts = self.mask_predictor.infer_with_points(img, output_dir)
-        # res_with_box = self.post_process(mask_with_box, img)
-        res_with_pts = self.post_process(mask_with_pts, img)
+        blurred = cv2.GaussianBlur(resized_mask, (5, 5), 0)
+        binary_mask = (blurred > 0.4).astype(np.uint8) * 255
 
-        return res_with_pts
+        contours, _ = cv2.findContours(binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        clean_mask = np.zeros_like(binary_mask)
+        largest = max(contours, key=cv2.contourArea)
+        binary_mask = cv2.drawContours(clean_mask, [largest], -1, 255, thickness=cv2.FILLED)
+        mask_blur = cv2.GaussianBlur(binary_mask, (9, 9), sigmaX=3)
+        alpha_mask = mask_blur / 255.0  # Entre 0 et 1
+        foreground = (img * alpha_mask[..., None]).astype(np.uint8)
+        background = (255 * (1 - alpha_mask[..., None])).astype(np.uint8)
+        final_image = foreground + background
+        return final_image
 
-
+    def infer(self, img: np.ndarray, output_dir: Path):
+        first_mask = self.detector.infer(img)
+        mask = self.mask_predictor.infer(img, first_mask, output_dir)
+        return self.post_process(mask, img)

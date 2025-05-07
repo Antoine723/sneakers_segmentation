@@ -4,42 +4,83 @@ import torch
 from transformers import AutoImageProcessor, SuperPointForKeypointDetection
 import numpy as np
 from sklearn.cluster import KMeans
-import matplotlib.pyplot as plt
 import cv2
+from pathlib import Path
+
+from final.schemas import SegmentorConfig
+
 
 class MaskPredictor():
-    def __init__(self):
-        self.checkpoint = "/home/antoine/Documents/Segmentation/sam2_hiera_large.pt"
-        self.model_cfg = "sam2_hiera_l.yaml"
-    
+    def __init__(self, config: SegmentorConfig):
+        self.checkpoint = config.segmentor_path
+        self.model_cfg = config.segmentor_config
+        self.num_clusters = config.num_clusters
+        self.num_kp = config.num_kp
+        self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+
     def load(self):
-        sam2_model = build_sam2(self.model_cfg, self.checkpoint, device="cuda")
+        sam2_model = build_sam2(self.model_cfg, self.checkpoint, device=self.device)
         self.mask_predictor = SAM2ImagePredictor(sam2_model)
+
         self.processor = AutoImageProcessor.from_pretrained("magic-leap-community/superpoint")
-        self.sp = SuperPointForKeypointDetection.from_pretrained(
+        self.keypoints_detector = SuperPointForKeypointDetection.from_pretrained(
             "magic-leap-community/superpoint"
         )
 
-    def infer_with_points(self, img, output_dir):
+    def get_keypoints_in_mask(self, keypoints: np.ndarray, mask: np.ndarray):
+        filtered_points = []
+        indices = []
+        for i, (x,y) in enumerate(keypoints):
+            if 0 <= y < mask.shape[0] and 0 <= x < mask.shape[1] and mask[y, x] > 0:
+                filtered_points.append((x,y))
+                indices.append(i)
+        return np.stack(filtered_points), indices
+
+    def infer_with_mask(self, img, first_mask, output_dir):
+        height, width = img.shape[:2]
+
+        self.mask_predictor.set_image(img)
+        points = self.get_random_point_from_mask(first_mask)
+        labels = np.array([1]*len(points))
+        cv2.imwrite(f"{output_dir}/yolo_seg_mask.jpg", first_mask)
+        cv2.imwrite(f"{output_dir}/yolo_seg_final.jpg", cv2.bitwise_and(img, img, mask=first_mask))
+
+        masks, scores, logits = self.mask_predictor.predict(
+            multimask_output=True,
+            point_coords=points,
+            point_labels=labels
+        )
+
+        f_mask, _, _ = self.mask_predictor.predict(
+            point_coords=points,
+            point_labels=labels,
+            mask_input=logits[np.argmax(scores), :, :][None, :, :],
+            multimask_output=False,
+        )
+        mask = f_mask[0]*255
+        cv2.imwrite(f"{output_dir}/mask.jpg", mask.astype(np.uint8))
+        return mask
+
+    def infer(self, img: np.ndarray, mask: np.ndarray, output_dir: Path):
         height, width = img.shape[:2]
         inputs = self.processor(img, return_tensors="pt")
         self.mask_predictor.set_image(img)
 
         with torch.no_grad():
-            outputs = self.sp(**inputs)
+            outputs = self.keypoints_detector(**inputs)
             image_sizes = [(height, width)]
             outputs = self.processor.post_process_keypoint_detection(outputs, image_sizes)
         output = outputs[0]
-        num_kp = 30 #TODO A affiner comme pour le n_clusters
-        indices = np.argpartition(output["scores"], -num_kp)[-num_kp:]
-        sscores = output["scores"][indices]
-        pts = output["keypoints"][indices]
-        kmeans = KMeans(n_clusters=3)
-        kmeans.fit(pts)
+        keypoints_in_mask, indices = self.get_keypoints_in_mask(output["keypoints"], mask)
+        indices = np.argpartition(output["scores"][indices], -self.num_kp)[-self.num_kp:]
+
+        selected_points = keypoints_in_mask[indices]
+        kmeans = KMeans(n_clusters=self.num_clusters)
+        kmeans.fit(selected_points)
         selected_points = kmeans.cluster_centers_
-        input_label = np.array([1]*len(selected_points))  # 1 pour un point positif
-        masks, scores, logits= self.mask_predictor.predict(
-            # box=box,
+
+        input_label = np.array([1]*len(selected_points))  # 1 = positive dot
+        _, scores, logits = self.mask_predictor.predict(
             multimask_output=True,
             point_coords=selected_points,
             point_labels=input_label
@@ -50,51 +91,11 @@ class MaskPredictor():
             mask_input=logits[np.argmax(scores), :, :][None, :, :],
             multimask_output=False,
         )
-        final_mask = f_mask[0] 
-        cv2.imwrite(f"{output_dir}/mask.jpg", (final_mask*255).astype(np.uint8))
+        final_mask = f_mask[0]
 
-        # for i, m in enumerate(masks):
-        #     cv2.imwrite(f"mask_{i}.jpg", (m*255).astype(np.uint8))
-        # kernel = np.ones((7, 7), np.uint8)  # Taille du noyau à ajuster
-        # mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-        # selected_points = np.array([pts[np.argmax(sscores)].tolist()])
-        plt.imshow(img, cmap='gray')
-        plt.scatter(selected_points[:, 0], selected_points[:, 1], c='r', marker='x')
-        plt.title("Points d'intérêt sélectionnés")
-        plt.savefig(f"{output_dir}/keypoints.jpg")
-        plt.clf()
+        cpy_img = img.copy()
+        for point in selected_points:
+            x, y = int(point[0]), int(point[1])
+            cv2.drawMarker(cpy_img, (x, y), color=(0, 0, 255), markerType=cv2.MARKER_CROSS, markerSize=50, thickness=3)
+        cv2.imwrite(output_dir / "keypoints.jpg", cpy_img)
         return final_mask
-
-    def infer_with_box(self, img, box):
-        height, width = img.shape[:2]
-
-        # box = np.array([int(box[0]*width), int(box[1]*height), int(box[2]*width), int(box[3]*height)])
-        self.mask_predictor.set_image(img)
-        masks, scores, logits= self.mask_predictor.predict(
-            box=box,
-            multimask_output=True,
-        )
-        mask = masks[scores.argmax()]
-        # mask = np.uint8(mask)
-        # kernel = np.ones((3, 3), np.uint8)
-        # # mask = cv2.dilate(mask.astype(np.uint8), kernel, iterations=1)
-        # mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-        # from scipy.ndimage import binary_fill_holes
-        # import matplotlib.pyplot as plt
-
-        # mask = binary_fill_holes(mask).astype(np.uint8)
-        # plt.axis("off")
-        # plt.imshow(img)
-        # plt.scatter(
-        #     pts[:, 0],
-        #     pts[:, 1],
-        #     c=sscores * 100,
-        #     s=sscores * 50,
-        #     alpha=0.8,
-        # )
-        # plt.savefig(f"output_image.png")
-        print("Seg done")
-        return mask
-
-
-
