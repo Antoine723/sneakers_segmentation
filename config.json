@@ -1,6 +1,6 @@
 {
-    "detector_path": "/home/antoine/Documents/Segmentation/detector.pt",
-    "segmentor_path": "/home/antoine/Documents/Segmentation/sam2_hiera_large.pt",
+    "detector_path": "/home/antoine/sneakers_segmentation/detector.pt",
+    "segmentor_path": "/home/antoine/sneakers_segmentation/sam2_hiera_large.pt",
     "segmentor_config": "sam2_hiera_l.yaml",
     "num_clusters": 5,
     "num_kp": 50

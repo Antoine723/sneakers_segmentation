@@ -10,7 +10,7 @@ from final.config import settings
 
 if __name__ == "__main__":
     start_time = time.time()
-    src_dir = "/home/antoine/Documents/Segmentation/dataset/full"
+    src_dir = "/home/antoine/sneakers_segmentation/dataset/full"
     target_dir = "final/target"
     with open(settings.config_file_path, "r") as f:
         config = SegmentorConfig.model_validate_json(f.read())
