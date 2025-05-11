@@ -5,7 +5,6 @@ import os
 import shutil
 from pathlib import Path
 
-from tqdm import tqdm
 from src.config import settings
 from src.schemas import SegmentorConfig
 from src.segmentor import AutomaticSegmentor
@@ -43,4 +42,3 @@ if __name__ == "__main__":
             file_name="data.zip",
             mime="application/zip"
         )
-        st.empty()
