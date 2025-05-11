@@ -16,6 +16,4 @@ class Detector():
         result = self.detector.predict(img, retina_masks=True)
         mask = result[0].masks.data.cpu().numpy()[0]
         mask = (mask*255).astype(np.uint8)
-        # masked_img=img*np.stack((mask.astype(np.uint8),)*3, axis=-1)
-        # masked_img[np.where((masked_img == [0, 0, 0]).all(axis=2))] = [255, 255, 255]
         return mask

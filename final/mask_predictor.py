@@ -72,13 +72,15 @@ class MaskPredictor():
             outputs = self.processor.post_process_keypoint_detection(outputs, image_sizes)
         output = outputs[0]
         keypoints_in_mask, indices = self.get_keypoints_in_mask(output["keypoints"], mask)
-        indices = np.argpartition(output["scores"][indices], -self.num_kp)[-self.num_kp:]
+        if self.num_kp > 0:
+            indices = np.argpartition(output["scores"][indices], -self.num_kp)[-self.num_kp:]
+            selected_points = keypoints_in_mask[indices]
 
-        selected_points = keypoints_in_mask[indices]
-        kmeans = KMeans(n_clusters=self.num_clusters)
-        kmeans.fit(selected_points)
-        selected_points = kmeans.cluster_centers_
-
+        if self.num_clusters > 0:
+            kmeans = KMeans(n_clusters=self.num_clusters)
+            kmeans.fit(selected_points)
+            selected_points = kmeans.cluster_centers_
+        selected_points = keypoints_in_mask
         input_label = np.array([1]*len(selected_points))  # 1 = positive dot
         _, scores, logits = self.mask_predictor.predict(
             multimask_output=True,
