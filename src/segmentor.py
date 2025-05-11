@@ -1,10 +1,10 @@
-from final.detector import Detector
-from final.mask_predictor import MaskPredictor
+from src.detector import Detector
+from src.mask_predictor import MaskPredictor
 import cv2
 import numpy as np
 from pathlib import Path
 
-from final.schemas import SegmentorConfig
+from src.schemas import SegmentorConfig
 
 
 class AutomaticSegmentor():

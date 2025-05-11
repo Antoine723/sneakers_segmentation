@@ -7,7 +7,7 @@ from sklearn.cluster import KMeans
 import cv2
 from pathlib import Path
 
-from final.schemas import SegmentorConfig
+from src.schemas import SegmentorConfig
 
 
 class MaskPredictor():

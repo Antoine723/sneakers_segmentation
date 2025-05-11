@@ -1,12 +1,12 @@
-from final.segmentor import AutomaticSegmentor
+from src.segmentor import AutomaticSegmentor
 import cv2
 import os
 import shutil
 import time
 from tqdm import tqdm
 from pathlib import Path
-from final.schemas import SegmentorConfig
-from final.config import settings
+from src.schemas import SegmentorConfig
+from src.config import settings
 
 if __name__ == "__main__":
     start_time = time.time()

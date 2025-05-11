@@ -1,6 +1,6 @@
 from ultralytics import YOLO
 import numpy as np
-from final.schemas import SegmentorConfig
+from src.schemas import SegmentorConfig
 import torch
 
 
