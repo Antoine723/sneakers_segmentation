@@ -11,6 +11,7 @@ class Detector():
 
     def load(self):
         self.detector = YOLO(self.checkpoint).to(self.device)
+        print("Detector loaded")
 
     def infer(self, img):
         result = self.detector.predict(img, retina_masks=True)

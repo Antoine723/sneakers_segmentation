@@ -42,4 +42,5 @@ class AutomaticSegmentor():
     def infer(self, img: np.ndarray, output_dir: Path):
         first_mask = self.detector.infer(img)
         mask = self.mask_predictor.infer(img, first_mask, output_dir)
+        print("Infer done")
         return self.post_process(mask, img)

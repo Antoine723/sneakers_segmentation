@@ -26,6 +26,7 @@ class MaskPredictor():
         self.keypoints_detector = SuperPointForKeypointDetection.from_pretrained(
             "magic-leap-community/superpoint"
         )
+        print("Mask predictor loaded")
 
     def get_keypoints_in_mask(self, keypoints: np.ndarray, mask: np.ndarray):
         filtered_points = []
@@ -95,9 +96,9 @@ class MaskPredictor():
         )
         final_mask = f_mask[0]
 
-        cpy_img = img.copy()
-        for point in selected_points:
-            x, y = int(point[0]), int(point[1])
-            cv2.drawMarker(cpy_img, (x, y), color=(0, 0, 255), markerType=cv2.MARKER_CROSS, markerSize=50, thickness=3)
-        cv2.imwrite(output_dir / "keypoints.jpg", cpy_img)
+        # cpy_img = img.copy()
+        # for point in selected_points:
+        #     x, y = int(point[0]), int(point[1])
+        #     cv2.drawMarker(cpy_img, (x, y), color=(0, 0, 255), markerType=cv2.MARKER_CROSS, markerSize=50, thickness=3)
+        # cv2.imwrite(output_dir / "keypoints.jpg", cpy_img)
         return final_mask
