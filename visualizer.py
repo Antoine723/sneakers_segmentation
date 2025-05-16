@@ -15,7 +15,13 @@ torch.classes.__path__ = [os.path.join(torch.__path__[0], torch.classes.__file__
 if __name__ == "__main__":
     st.title("Détourage automatique")
     uploaded_file = st.file_uploader("Toutes les photos à détourer, dans un dossier compressé", type="zip")
-    if uploaded_file is not None:
+    if "last_uploaded" not in st.session_state:
+        st.session_state.last_uploaded = None
+    if "zip_bytes" not in st.session_state:
+        st.session_state.zip_bytes = None
+
+    if uploaded_file is not None and uploaded_file != st.session_state.last_uploaded:
+        st.session_state.last_uploaded = uploaded_file
         target_dir = Path("/tmp/seg/")
         if target_dir.exists():
             shutil.rmtree(target_dir)
@@ -35,10 +41,11 @@ if __name__ == "__main__":
         shutil.make_archive(target_dir / "result", "zip", target_dir / "result")
 
         with open(target_dir / "result.zip", "rb") as f:
-            zip_bytes = f.read()
+            st.session_state.zip_bytes = f.read()
+    if st.session_state.zip_bytes:
         st.download_button(
-            label="📦 Télécharger le ZIP",
-            data=zip_bytes,
+            label="Télécharger le ZIP",
+            data=st.session_state.zip_bytes,
             file_name="data.zip",
             mime="application/zip"
         )
