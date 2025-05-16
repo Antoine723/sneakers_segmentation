@@ -33,15 +33,23 @@ if __name__ == "__main__":
             config = SegmentorConfig.model_validate_json(f.read())
         seg = AutomaticSegmentor(config)
         seg.load()
-        for img_path in list(target_dir.glob("*.jpg")):
+        img_paths = list(target_dir.glob("*.jpg"))
+        total = len(img_paths)
+        progress_bar = st.progress(0, text="Traitement en cours...")
+
+        for i, img_path in enumerate(img_paths):
             img = cv2.imread(img_path)
             masked_img = seg.infer(img, Path(f"{target_dir}/result/"))
             cv2.imwrite(Path(f"{target_dir}/result/{img_path.name}"), masked_img)
-        
+            progress_bar.progress((i + 1) / total, text=f"Traitement de l'image {i + 1}/{total}")
+        progress_bar.empty()
+
         shutil.make_archive(target_dir / "result", "zip", target_dir / "result")
 
         with open(target_dir / "result.zip", "rb") as f:
             st.session_state.zip_bytes = f.read()
+        st.success("✅ Traitement terminé.")
+        
     if st.session_state.zip_bytes:
         st.download_button(
             label="Télécharger le ZIP",
