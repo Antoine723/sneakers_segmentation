@@ -21,6 +21,7 @@ if __name__ == "__main__":
         st.session_state.zip_bytes = None
 
     if uploaded_file is not None and uploaded_file != st.session_state.last_uploaded:
+        progress_bar = st.progress(0, text="Traitement en cours...")
         st.session_state.last_uploaded = uploaded_file
         target_dir = Path("/tmp/seg/")
         if target_dir.exists():
@@ -35,7 +36,6 @@ if __name__ == "__main__":
         seg.load()
         img_paths = list(target_dir.glob("*.jpg"))
         total = len(img_paths)
-        progress_bar = st.progress(0, text="Traitement en cours...")
 
         for i, img_path in enumerate(img_paths):
             img = cv2.imread(img_path)
