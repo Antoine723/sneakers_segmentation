@@ -1,7 +1,5 @@
 {
     "detector_path": "weights/detector.pt",
-    "segmentor_path": "weights/sam2_hiera_large.pt",
-    "segmentor_config": "sam2_hiera_l.yaml",
     "num_clusters": -1,
     "num_kp": -1
 }

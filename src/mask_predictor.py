@@ -12,17 +12,14 @@ from src.schemas import SegmentorConfig
 
 class MaskPredictor():
     def __init__(self, config: SegmentorConfig):
-        self.checkpoint = config.segmentor_path
-        self.model_cfg = config.segmentor_config
         self.num_clusters = config.num_clusters
         self.num_kp = config.num_kp
         self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
     def load(self):
-        sam2_model = build_sam2(self.model_cfg, self.checkpoint, device=self.device)
-        self.mask_predictor = SAM2ImagePredictor(sam2_model)
+        self.mask_predictor = SAM2ImagePredictor.from_pretrained("facebook/sam2-hiera-large", device=self.device)
 
-        self.processor = AutoImageProcessor.from_pretrained("magic-leap-community/superpoint")
+        self.processor = AutoImageProcessor.from_pretrained("magic-leap-community/superpoint", device=self.device)
         self.keypoints_detector = SuperPointForKeypointDetection.from_pretrained(
             "magic-leap-community/superpoint"
         )
