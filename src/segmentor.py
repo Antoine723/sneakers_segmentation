@@ -5,7 +5,7 @@ import numpy as np
 from pathlib import Path
 
 from src.schemas import SegmentorConfig
-
+from time import time
 
 class AutomaticSegmentor():
     def __init__(self, config: SegmentorConfig):
@@ -40,7 +40,9 @@ class AutomaticSegmentor():
         return final_image
 
     def infer(self, img: np.ndarray, output_dir: Path):
+        start_time = time()
         first_mask = self.detector.infer(img)
         mask = self.mask_predictor.infer(img, first_mask, output_dir)
-        print("Infer done")
-        return self.post_process(mask, img)
+        result = self.post_process(mask, img)
+        print(f"Infer done in {time() - start_time} sec")
+        return result

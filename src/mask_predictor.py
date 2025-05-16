@@ -23,7 +23,7 @@ class MaskPredictor():
         self.keypoints_detector = SuperPointForKeypointDetection.from_pretrained(
             "magic-leap-community/superpoint"
         )
-        print("Mask predictor loaded")
+        print(f"Mask predictor loaded and use {self.device} device")
 
     def get_keypoints_in_mask(self, keypoints: np.ndarray, mask: np.ndarray):
         filtered_points = []
